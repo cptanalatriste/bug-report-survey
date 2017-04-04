@@ -10,6 +10,8 @@ import config
 SEPARATOR = ";"
 
 ROLES_COLUMN = "What is your role in your current software development project(s)?"
+DEFLATION_COLUMN = "Considering your current software project(s): How often is priority understated (or deflated) " \
+                   "in bug reports?"
 
 DEVELOPER = "Developer"
 TESTER = "Tester"
@@ -18,6 +20,10 @@ ARCHITECT = "Architect"
 BUSINESS_ANALYST = "Business Analyst"
 
 ROLES = [DEVELOPER, TESTER, PROJECT_MANAGER, ARCHITECT, BUSINESS_ANALYST]
+
+FREQUENCY_TRANSLATION = {"Frecuentemente": "Frequently",
+                         "Ocasionalmente": "Occasionally",
+                         "Nunca": "Never"}
 
 
 def translate_roles(spanish_roles):
@@ -47,10 +53,14 @@ def translate_responses(spanish_df):
     :return: Translated dataframe
     """
     roles_column_es = " ¿Qué roles cumples en el proyecto de desarrollo de Software en el que estás participando?"
-
     translated_roles = spanish_df[roles_column_es].apply(translate_roles).values
 
-    return pd.DataFrame({ROLES_COLUMN: translated_roles})
+    deflation_column_es = "En tu proyecto actual ¿Con qué frecuencia se subestima el valor del campo prioridad " \
+                          "al reportar un defecto de software?"
+    translated_deflations = spanish_df[deflation_column_es].map(FREQUENCY_TRANSLATION).values
+
+    return pd.DataFrame({ROLES_COLUMN: translated_roles,
+                         DEFLATION_COLUMN: translated_deflations})
 
 
 def contains_other(all_roles):
@@ -69,20 +79,30 @@ def contains_other(all_roles):
     return False
 
 
-def get_role_information(dataframe_list):
+def merge_columns(dataframe_list, column_name):
     """
-    Get the counts for the main roles
-    :param dataframe_list: 
-    :return: 
+    Merges the same column in several dataframes.
+    :param dataframe_list: List of dataframe
+    :param column_name: Name of the column
+    :return: Merged series.
     """
     roles_series = None
 
     for dataframe in dataframe_list:
         if roles_series is None:
-            roles_series = dataframe[ROLES_COLUMN]
+            roles_series = dataframe[column_name]
         else:
-            roles_series = roles_series.append(dataframe[ROLES_COLUMN])
+            roles_series = roles_series.append(dataframe[column_name])
 
+    return roles_series
+
+
+def get_role_information(roles_series):
+    """
+    Get the counts for the main roles
+    :param dataframe_list: 
+    :return: 
+    """
     for role in ROLES:
         boolean_series = roles_series.apply(
             lambda all_roles: type(all_roles) is str and role in all_roles.split(SEPARATOR))
@@ -107,7 +127,9 @@ def main():
 
     spanish_df = translate_responses(spanish_df)
 
-    get_role_information([apache_df, english_df, spanish_df])
+    all_dataframes = [apache_df, english_df, spanish_df]
+
+    get_role_information(merge_columns(all_dataframes, ROLES_COLUMN))
 
 
 if __name__ == "__main__":
