@@ -3,8 +3,9 @@
 """
 This is the module for the survey data processing.
 """
-
+import matplotlib
 import pandas as pd
+import matplotlib.pyplot as plt
 import config
 
 SEPARATOR = ";"
@@ -12,6 +13,9 @@ SEPARATOR = ";"
 ROLES_COLUMN = "What is your role in your current software development project(s)?"
 DEFLATION_COLUMN = "Considering your current software project(s): How often is priority understated (or deflated) " \
                    "in bug reports?"
+INFLATION_COLUMN = "Considering your current software project(s): How often is priority overstated (or inflated)" \
+                   " in bug reports?"
+IMPACT_COLUMN = "Is priority inflation/deflation affecting your work?"
 
 DEVELOPER = "Developer"
 TESTER = "Tester"
@@ -20,10 +24,6 @@ ARCHITECT = "Architect"
 BUSINESS_ANALYST = "Business Analyst"
 
 ROLES = [DEVELOPER, TESTER, PROJECT_MANAGER, ARCHITECT, BUSINESS_ANALYST]
-
-FREQUENCY_TRANSLATION = {"Frecuentemente": "Frequently",
-                         "Ocasionalmente": "Occasionally",
-                         "Nunca": "Never"}
 
 
 def translate_roles(spanish_roles):
@@ -55,12 +55,28 @@ def translate_responses(spanish_df):
     roles_column_es = " ¿Qué roles cumples en el proyecto de desarrollo de Software en el que estás participando?"
     translated_roles = spanish_df[roles_column_es].apply(translate_roles).values
 
+    frequency_translation = {"Frecuentemente": "Frequently",
+                             "Ocasionalmente": "Occasionally",
+                             "Nunca": "Never"}
+
     deflation_column_es = "En tu proyecto actual ¿Con qué frecuencia se subestima el valor del campo prioridad " \
                           "al reportar un defecto de software?"
-    translated_deflations = spanish_df[deflation_column_es].map(FREQUENCY_TRANSLATION).values
+    translated_deflations = spanish_df[deflation_column_es].map(frequency_translation).values
+
+    inflation_column_es = "En tu proyecto actual ¿Con qué frecuencia se exagera el valor del campo prioridad" \
+                          " al reportar un defecto de software?"
+    translated_inflations = spanish_df[inflation_column_es].map(frequency_translation).values
+
+    impact_translation = {"No tienen impacto alguno": "It has no impact",
+                          "Tienen un impacto mínimo": "Its impact is minimum",
+                          "Tienen un impacto significativo": "It has a significant impact"}
+    impact_column_es = " ¿Qué impacto tienen estas prioridades exageradas o subestimadas en tu trabajo diario?"
+    translated_impacts = spanish_df[impact_column_es].map(impact_translation).values
 
     return pd.DataFrame({ROLES_COLUMN: translated_roles,
-                         DEFLATION_COLUMN: translated_deflations})
+                         DEFLATION_COLUMN: translated_deflations,
+                         INFLATION_COLUMN: translated_inflations,
+                         IMPACT_COLUMN: translated_impacts})
 
 
 def contains_other(all_roles):
@@ -112,6 +128,22 @@ def get_role_information(roles_series):
     print "Other: ", roles_series.apply(contains_other).sum()
 
 
+def get_frequency_chart(frequency_series, file_name, figsize=(6, 6)):
+    """
+    Produces an image of the deflation chart.
+    :param deflation_series: 
+    :return: 
+    """
+
+    counts = frequency_series.value_counts(normalize=True)
+    counts.name = ""
+    print "Generating ", file_name, " from ", frequency_series.count(), " responses:\n", counts
+
+    plt.figure()
+    counts.plot.pie(autopct='%.2f%%', figsize=figsize)
+    plt.savefig(file_name)
+
+
 def main():
     apache_df = pd.read_csv(config.SURVEY_DIR + config.APACHE_FILE)
     print "Apache Responses: ", len(apache_df.index)
@@ -125,11 +157,25 @@ def main():
     all_responses = len(apache_df.index) + len(english_df.index) + len(spanish_df.index)
     print "Total responses: ", all_responses
 
-    spanish_df = translate_responses(spanish_df)
+    translated_df = translate_responses(spanish_df)
 
-    all_dataframes = [apache_df, english_df, spanish_df]
+    all_dataframes = [apache_df, english_df, translated_df]
 
     get_role_information(merge_columns(all_dataframes, ROLES_COLUMN))
+
+    matplotlib.style.use('ggplot')
+    get_frequency_chart(merge_columns(all_dataframes, DEFLATION_COLUMN), "deflation_plot.png")
+    get_frequency_chart(merge_columns(all_dataframes, INFLATION_COLUMN), "inflation_plot.png")
+    get_frequency_chart(merge_columns(all_dataframes, IMPACT_COLUMN), "impact_plot.png", figsize=(8, 8))
+
+    remedies_column_es = "Si las prioridades exageradas o subestimadas afectan tu trabajo diario, por favor detalla de " \
+                         "qué manera y si se están tomando medidas para evitar que esto suceda."
+    remedies_column_en = "If priority inflation/deflation is affecting your work, please detail how and what steps are " \
+                         "being taken to address it."
+
+    remedies_responses = spanish_df[remedies_column_es].count() + apache_df[remedies_column_en].count() + english_df[
+        remedies_column_en].count()
+    print "Number of responses containing remedies: ", remedies_responses
 
 
 if __name__ == "__main__":
