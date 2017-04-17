@@ -6,6 +6,8 @@ This is the module for the survey data processing.
 import matplotlib
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
+
 import config
 
 SEPARATOR = ";"
@@ -24,6 +26,10 @@ ARCHITECT = "Architect"
 BUSINESS_ANALYST = "Business Analyst"
 
 ROLES = [DEVELOPER, TESTER, PROJECT_MANAGER, ARCHITECT, BUSINESS_ANALYST]
+
+FREQUENTLY_VALUE = "Frequently"
+OCASSIONALY_VALUE = "Occasionally"
+NEVER_VALUE = "Never"
 
 
 def translate_roles(spanish_roles):
@@ -55,9 +61,9 @@ def translate_responses(spanish_df):
     roles_column_es = " ¿Qué roles cumples en el proyecto de desarrollo de Software en el que estás participando?"
     translated_roles = spanish_df[roles_column_es].apply(translate_roles).values
 
-    frequency_translation = {"Frecuentemente": "Frequently",
-                             "Ocasionalmente": "Occasionally",
-                             "Nunca": "Never"}
+    frequency_translation = {"Frecuentemente": FREQUENTLY_VALUE,
+                             "Ocasionalmente": OCASSIONALY_VALUE,
+                             "Nunca": NEVER_VALUE}
 
     deflation_column_es = "En tu proyecto actual ¿Con qué frecuencia se subestima el valor del campo prioridad " \
                           "al reportar un defecto de software?"
@@ -144,6 +150,43 @@ def get_frequency_chart(frequency_series, file_name, figsize=(6, 6)):
     plt.savefig(file_name)
 
 
+def get_honesty_bars(deflation_series, inflation_series):
+    plt.figure()
+
+    deflation_counts = deflation_series.value_counts()
+    inflation_counts = inflation_series.value_counts()
+
+    print "deflation_series.value_counts(): \n", deflation_counts
+    print "inflation_series.value_counts(): \n", inflation_counts
+
+    column_locations = np.arange(2)
+    bar_width = 0.2
+
+    never_values = (deflation_counts.get(NEVER_VALUE), inflation_counts.get(NEVER_VALUE))
+    occasionally_values = (deflation_counts.get(OCASSIONALY_VALUE), inflation_counts.get(OCASSIONALY_VALUE))
+    frequently_values = (deflation_counts.get(FREQUENTLY_VALUE), inflation_counts.get(FREQUENTLY_VALUE))
+
+    print "never_values: ", never_values
+    print "occasionally_values: ", occasionally_values
+    print "frequently_values: ", frequently_values
+
+    never_container = plt.bar(column_locations, never_values, bar_width, color=plt.rcParams['axes.color_cycle'][0],
+                              align='center')
+    occasionally_container = plt.bar(column_locations, occasionally_values, bar_width, bottom=never_values,
+                                     color=plt.rcParams['axes.color_cycle'][1], align='center')
+
+    bottom_values = (never_values[0] + occasionally_values[0], never_values[1] + occasionally_values[1])
+    frequently_container = plt.bar(column_locations, frequently_values, bar_width, bottom=bottom_values,
+                                   color=plt.rcParams['axes.color_cycle'][2], align='center')
+
+    plt.ylabel('Participants')
+    plt.xticks(column_locations, ('Deflation', 'Inflation'))
+    plt.yticks(np.arange(0, 150, 10))
+    plt.legend((never_container[0], occasionally_container[0], frequently_container[0]),
+               (NEVER_VALUE, OCASSIONALY_VALUE, FREQUENTLY_VALUE))
+    plt.savefig("honesty_chart.png")
+
+
 def main():
     apache_df = pd.read_csv(config.SURVEY_DIR + config.APACHE_FILE)
     print "Apache Responses: ", len(apache_df.index)
@@ -164,8 +207,12 @@ def main():
     get_role_information(merge_columns(all_dataframes, ROLES_COLUMN))
 
     matplotlib.style.use('ggplot')
-    get_frequency_chart(merge_columns(all_dataframes, DEFLATION_COLUMN), "deflation_plot.png")
-    get_frequency_chart(merge_columns(all_dataframes, INFLATION_COLUMN), "inflation_plot.png")
+
+    deflation_series = merge_columns(all_dataframes, DEFLATION_COLUMN)
+    inflation_series = merge_columns(all_dataframes, INFLATION_COLUMN)
+
+    get_frequency_chart(deflation_series, "deflation_plot.png")
+    get_frequency_chart(inflation_series, "inflation_plot.png")
     get_frequency_chart(merge_columns(all_dataframes, IMPACT_COLUMN), "impact_plot.png", figsize=(8, 8))
 
     remedies_column_es = "Si las prioridades exageradas o subestimadas afectan tu trabajo diario, por favor detalla de " \
@@ -176,6 +223,8 @@ def main():
     remedies_responses = spanish_df[remedies_column_es].count() + apache_df[remedies_column_en].count() + english_df[
         remedies_column_en].count()
     print "Number of responses containing remedies: ", remedies_responses
+
+    get_honesty_bars(deflation_series, inflation_series)
 
 
 if __name__ == "__main__":
