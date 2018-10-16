@@ -18,6 +18,8 @@ DEFLATION_COLUMN = "Considering your current software project(s): How often is p
 INFLATION_COLUMN = "Considering your current software project(s): How often is priority overstated (or inflated)" \
                    " in bug reports?"
 IMPACT_COLUMN = "Is priority inflation/deflation affecting your work?"
+REMEDIES_COLUMN = "If priority inflation/deflation is affecting your work, please detail how and what steps are " \
+                  "being taken to address it."
 
 DEVELOPER = "Developer"
 TESTER = "Tester"
@@ -79,10 +81,15 @@ def translate_responses(spanish_df):
     impact_column_es = " ¿Qué impacto tienen estas prioridades exageradas o subestimadas en tu trabajo diario?"
     translated_impacts = spanish_df[impact_column_es].map(impact_translation).values
 
+    remedies_column_es = "Si las prioridades exageradas o subestimadas afectan tu trabajo diario, por favor detalla de " \
+                         "qué manera y si se están tomando medidas para evitar que esto suceda."
+    spanish_remedies = spanish_df[remedies_column_es]
+
     return pd.DataFrame({ROLES_COLUMN: translated_roles,
                          DEFLATION_COLUMN: translated_deflations,
                          INFLATION_COLUMN: translated_inflations,
-                         IMPACT_COLUMN: translated_impacts})
+                         IMPACT_COLUMN: translated_impacts,
+                         REMEDIES_COLUMN: spanish_remedies})
 
 
 def contains_other(all_roles):
@@ -215,14 +222,12 @@ def main():
     get_frequency_chart(inflation_series, "inflation_plot.png")
     get_frequency_chart(merge_columns(all_dataframes, IMPACT_COLUMN), "impact_plot.png", figsize=(8, 8))
 
-    remedies_column_es = "Si las prioridades exageradas o subestimadas afectan tu trabajo diario, por favor detalla de " \
-                         "qué manera y si se están tomando medidas para evitar que esto suceda."
-    remedies_column_en = "If priority inflation/deflation is affecting your work, please detail how and what steps are " \
-                         "being taken to address it."
+    remedies_series = merge_columns(all_dataframes, REMEDIES_COLUMN)
+    print "Number of responses containing remedies: ", remedies_series.count()
 
-    remedies_responses = spanish_df[remedies_column_es].count() + apache_df[remedies_column_en].count() + english_df[
-        remedies_column_en].count()
-    print "Number of responses containing remedies: ", remedies_responses
+    remedies_file = "remedies.csv"
+    remedies_series.to_csv(remedies_file)
+    print "All remedies responses stored at ", remedies_file
 
     get_honesty_bars(deflation_series, inflation_series)
 
