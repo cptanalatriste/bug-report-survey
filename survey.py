@@ -20,6 +20,8 @@ INFLATION_COLUMN = "Considering your current software project(s): How often is p
 IMPACT_COLUMN = "Is priority inflation/deflation affecting your work?"
 REMEDIES_COLUMN = "If priority inflation/deflation is affecting your work, please detail how and what steps are " \
                   "being taken to address it."
+DETAILED_IMPACT_COLUMN = "Impact"
+SOLUTION_COLUMN = "Solution"
 
 DEVELOPER = "Developer"
 TESTER = "Tester"
@@ -177,14 +179,14 @@ def get_honesty_bars(deflation_series, inflation_series):
     print "occasionally_values: ", occasionally_values
     print "frequently_values: ", frequently_values
 
-    never_container = plt.bar(column_locations, never_values, bar_width, color=plt.rcParams['axes.color_cycle'][0],
+    never_container = plt.bar(column_locations, never_values, bar_width, color='r',
                               align='center')
     occasionally_container = plt.bar(column_locations, occasionally_values, bar_width, bottom=never_values,
-                                     color=plt.rcParams['axes.color_cycle'][1], align='center')
+                                     color='g', align='center')
 
     bottom_values = (never_values[0] + occasionally_values[0], never_values[1] + occasionally_values[1])
     frequently_container = plt.bar(column_locations, frequently_values, bar_width, bottom=bottom_values,
-                                   color=plt.rcParams['axes.color_cycle'][2], align='center')
+                                   color='b', align='center')
 
     plt.ylabel('Participants')
     plt.xticks(column_locations, ('Deflation', 'Inflation'))
@@ -192,6 +194,12 @@ def get_honesty_bars(deflation_series, inflation_series):
     plt.legend((never_container[0], occasionally_container[0], frequently_container[0]),
                (NEVER_VALUE, OCASSIONALY_VALUE, FREQUENTLY_VALUE))
     plt.savefig("honesty_chart.png")
+
+
+def generate_remedies_file(remedies_series):
+    remedies_file = "remedies.csv"
+    remedies_series.to_csv(remedies_file)
+    print "All remedies responses stored at ", remedies_file
 
 
 def main():
@@ -224,12 +232,19 @@ def main():
 
     remedies_series = merge_columns(all_dataframes, REMEDIES_COLUMN)
     print "Number of responses containing remedies: ", remedies_series.count()
-
-    remedies_file = "remedies.csv"
-    remedies_series.to_csv(remedies_file)
-    print "All remedies responses stored at ", remedies_file
+    if config.GENERATE_CONSOLIDATED_REMEDIES:
+        generate_remedies_file(remedies_series)
 
     get_honesty_bars(deflation_series, inflation_series)
+
+    annotated_remedies_df = pd.read_csv(config.SURVEY_DIR + config.REMEDIES_FILE)
+    print "Remedies collected: ", len(annotated_remedies_df.index)
+
+    impact_series = annotated_remedies_df[DETAILED_IMPACT_COLUMN]
+    solution_series = annotated_remedies_df[SOLUTION_COLUMN]
+
+    get_frequency_chart(impact_series, "detailed_impact_plot.png", figsize=(10, 10))
+    get_frequency_chart(solution_series, "solution_plot.png", figsize=(10, 10))
 
 
 if __name__ == "__main__":
