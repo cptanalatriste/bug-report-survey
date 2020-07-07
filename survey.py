@@ -22,6 +22,7 @@ REMEDIES_COLUMN = "If priority inflation/deflation is affecting your work, pleas
                   "being taken to address it."
 DETAILED_IMPACT_COLUMN = "Impact"
 SOLUTION_COLUMN = "Solution"
+EXPERIENCE_COLUMN = "How many years have you being involved professionally in software development?"
 
 DEVELOPER = "Developer"
 TESTER = "Tester"
@@ -87,11 +88,15 @@ def translate_responses(spanish_df):
                          "qué manera y si se están tomando medidas para evitar que esto suceda."
     spanish_remedies = spanish_df[remedies_column_es]
 
+    experience_column_es = "¿Cuántos años de experiencia tienes en proyectos de desarrollo de Software?"
+    experience_values = spanish_df[experience_column_es]
+
     return pd.DataFrame({ROLES_COLUMN: translated_roles,
                          DEFLATION_COLUMN: translated_deflations,
                          INFLATION_COLUMN: translated_inflations,
                          IMPACT_COLUMN: translated_impacts,
-                         REMEDIES_COLUMN: spanish_remedies})
+                         REMEDIES_COLUMN: spanish_remedies,
+                         EXPERIENCE_COLUMN: experience_values})
 
 
 def contains_other(all_roles):
@@ -128,12 +133,24 @@ def merge_columns(dataframe_list, column_name):
     return roles_series
 
 
+def normalize_roles(raw_roles):
+    if pd.isna(raw_roles):
+        return None
+
+    return SEPARATOR.join(sorted(role for role in raw_roles.split(SEPARATOR) if role in ROLES))
+
+
 def get_role_information(roles_series):
     """
     Get the counts for the main roles
-    :param dataframe_list: 
-    :return: 
+    :return:
     """
+
+    roles_series = roles_series.apply(normalize_roles)
+
+    print "Raw role information"
+    print roles_series.value_counts()
+
     for role in ROLES:
         boolean_series = roles_series.apply(
             lambda all_roles: type(all_roles) is str and role in all_roles.split(SEPARATOR))
@@ -245,6 +262,10 @@ def main():
 
     get_frequency_chart(impact_series, "detailed_impact_plot.png", figsize=(10, 10))
     get_frequency_chart(solution_series, "solution_plot.png", figsize=(10, 10))
+
+    print "Experience statistics"
+    experience_series = merge_columns(all_dataframes, EXPERIENCE_COLUMN)
+    print experience_series.describe()
 
 
 if __name__ == "__main__":
